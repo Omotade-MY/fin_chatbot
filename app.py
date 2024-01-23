@@ -26,6 +26,7 @@ from langchain.chains import ConversationalRetrievalChain
 import os
 import pandas as pd
 from dotenv import load_dotenv, find_dotenv
+import io
 
 # os.environ["OPENAI_API_KEY"] = ""
 
@@ -117,9 +118,7 @@ def get_csv_file() -> Optional[str]:
                 Loader = Docx2txtLoader
 
             elif file.type == "text/csv":
-                # flp = './temp.csv'
-                # pd.read_csv(file).to_csv(flp, index=False)
-                csv_paths.append(file.name)
+                csv_paths.append(file)
 
             elif file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
                 loader = ut.ExcelLoader(file)
@@ -132,9 +131,10 @@ def get_csv_file() -> Optional[str]:
                 raise ValueError('File type is not supported')
 
             if Loader:
-                with tempfile.NamedTemporaryFile(delete=False) as tpfile:
-                    tpfile.write(file.getvalue())
-                    loader = Loader(tpfile.name)
+                file_buffer = io.BytesIO(file.getvalue())
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_file.write(file_buffer.getvalue())
+                    loader = Loader(temp_file.name)
                     docs = loader.load()
                     all_docs.extend(docs)
 
@@ -533,7 +533,6 @@ def main() -> None:
                             st.session_state.messages.append({"role": "assistant", "content": answer})
                             st.write(answer)
                     elif chain_mode == "CSV|Excel":
-                        assert type(llm_chain) != type(None)
                         # with st.spinner("Assistant is typing ..."):
                         try:
                             answer, cost = get_answer(llm_chain,llm, prompt, chain_type=chain_mode)
@@ -561,6 +560,9 @@ def main() -> None:
 
             except AssertionError:
                 st.warning('Please provide a context source') 
+            except UnboundLocalError:
+                st.warning("UnboundLocalError: 'Please provide a context source.")
+ 
 
         # Display chat history
         # chat_history = []

@@ -6,6 +6,8 @@ import openai
 import lida
 from lida import Manager, TextGenerationConfig , llm  
 import pandas as pd
+import io
+import os
 
 class ExcelLoader():
     def __init__(self, file):
@@ -20,30 +22,22 @@ class ExcelLoader():
         from langchain.document_loaders.csv_loader import CSVLoader
 
         ssheet = self.loader(self.file)
-        # try:
-        #     os.mkdir('temp')
-
-        # except FileExistsError:
-        #     pass
         docs = []
         for i,sheet in enumerate(ssheet.sheet_names):
-            #df = ssheet.parse(sheet)
-            temp_path = f'{sheet}.csv'
-            docs.append(temp_path)
-            #df.to_csv(temp_path, index=False)
+            df = ssheet.parse(sheet)
+    
+            # Create an in-memory file-like object
+            temp_buffer = io.StringIO()
+
+            # Write DataFrame to the buffer instead of writing to disk
+            df.to_csv(temp_buffer, index=False)
+
+            # Reset the buffer position to the beginning
+            temp_buffer.seek(0)
+
+            docs.append(temp_buffer)
         return docs
 
-def process_csv_file(file):
-    file_paths = []
-    if file.split('.')[-1] == 'csv':
-        file_paths.append(file)
-    elif file.split('.')[-1] == 'xlsx':
-        loader = ExcelLoader(file)
-        paths = loader.load()
-        file_paths.extend(paths)
-    if len(file_paths) == 1:
-        return file_paths[0]
-    return file_paths
 
 
 def randomName():
@@ -60,19 +54,9 @@ def randomName():
 
 
 def generate_plot(data_path, prompt=None,api_key=None):
-
-    assert data_path is not None
-    directory_path = 'images'
-    # Check if the directory already exists
-    if not os.path.exists(directory_path):
-        # Create the directory
-        os.makedirs(directory_path)
-        print(f"Directory '{directory_path}' was created.")
-    else:
-        print(f"Directory '{directory_path}' already exists.")
     
     lida = Manager(text_gen = llm(provider="openai", api_key=api_key)) 
-    textgen_config = TextGenerationConfig(n=1, temperature=0.5, model="gpt-3.5-turbo-0301", use_cache=True)
+    textgen_config = TextGenerationConfig(n=1, temperature=0, model="gpt-3.5-turbo-0613", use_cache=True)
     
     summary = lida.summarize(data_path, summary_method="default", textgen_config=textgen_config)  
     
@@ -82,37 +66,24 @@ def generate_plot(data_path, prompt=None,api_key=None):
 
     else:
         persona = prompt
+        print(f"This the Prompt Recieved : {prompt}")
         goals = lida.goals(summary, n=1, persona=persona, textgen_config=textgen_config)
         
     i = 0
-    library = "seaborn"
-    plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library,)
+    print("Using Matplotlib")
+    library = "matplotlib"
+    plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library)
     
-    if len(plots) == 0:
-        library = "matplotlib"
-        textgen_config = TextGenerationConfig(n=1, temperature=0, use_cache=False)
-        plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library,)
 
     if len(plots) == 0:
-        st.write("Could not generate a plot from your prompt. The below chart can be helpful")
-        caption, img_path = generate_plot(data_path=data_path)
-        return caption, img_path
-    
+        print("Could not generate a plot from your prompt. The below chart can be helpful")
+        caption, fig = generate_plot(data_path=data_path)
+        return caption, fig
     
     fig = plots[0]
-    
-    
-    #if len(plots) != 0:
-    #fig = plots[0]
+    caption = goals[0].rationale
 
-    img_name = randomName() + ".jpg"
-    img_path  = os.path.join(os.getcwd(), directory_path, img_name)
-    lida.edit(code=fig.code, summary=summary, instructions=f"Save the figure to the file '{img_path}'")
-    caption = goals[i].rationale
-    # st.write(goals[i].visualization)
-
-    
-    return caption, img_path
+    return caption, fig
 
 
 def classify_prompt(input, api_key=None):
@@ -142,21 +113,18 @@ def classify_prompt(input, api_key=None):
 
 
 
-def display(img_path, rationale):
-    from PIL import Image
-
-    im = Image.open(img_path)
+def display(fig, rationale):
+    import base64
+    # Decode the base64-encoded data
+    fig_data = base64.b64decode(fig.raster)
     container = st.container()
     with container:
-        st.image(im)
+        st.image(fig_data)
         st.markdown("**Insight**")
         st.write(rationale)
-        from io import BytesIO
-        buf = BytesIO()
-        im.save(buf, format="JPEG")
-        byte_im = buf.getvalue()
+        
         st.download_button(label="Download Image",
-                           data=byte_im,
+                           data=fig_data,
                            file_name=f"img{randomName()}.jpg",
                            mime="image/jpeg",)
         
@@ -196,36 +164,41 @@ def extract_data(text):
 
         # Read the CSV into a pandas DataFrame
         df = pd.read_csv(csv_file)
-        try:
-            os.mkdir("temp")
-        except FileExistsError:
-            pass
-        n = randomName()+ ".csv"
-        path = os.path.join('temp', n)
-        df.to_csv(path, index=False)
+
+        # Create an in-memory file-like object
+        buffer = io.StringIO()  # For text data, you can use io.BytesIO() for binary data
+
+        # Save DataFrame to the buffer instead of writing to disk
+        df.to_csv(buffer, index=False)
 
         # Display the DataFrame
-        print(df)
+        print(buffer.getvalue())
     else:
         print("No CSV string found in the text.")
-    return path
+        buffer.seek()
+    return buffer
 
 
-def create_lida_data(file_path, file_name=None):
-    import pandas as pd
-    import os
-    assert isinstance(file_path, list)
-    try:
-        os.mkdir('temp')
-    except FileExistsError:
-        pass
-    file_name = f"LiDA{randomName()}"+".xlsx"
-    lida_file_path = os.path.join('temp',file_name)
-    with pd.ExcelWriter(lida_file_path) as writer:
+def create_lida_data(file_paths, file_name=None):
+    
+    assert isinstance(file_paths, list)
+    lida_buffer = io.BytesIO()
+
+    with pd.ExcelWriter(lida_buffer, engine='xlsxwriter') as writer:
         # Write each DataFrame to a different sheet
-        for i,file in enumerate(file_path):
+        for i, file in enumerate(file_paths):
+            file_buffer = io.StringIO()
+            file_buffer.write(file.getvalue().decode())
+            # Reset the buffer position to the beginning
+            file_buffer.seek(0)
             sheet = f'Sheet{i}'
-            df =  pd.read_csv(file)
+            df = pd.read_csv(file_buffer)
             df.to_excel(writer, sheet_name=sheet, index=False)
+    lida_buffer.seek(0)
+
+    # Return the file path
+    #print(lida_buffer.getvalue())
+    #print(type(lida_buffer))
+    excel = pd.read_excel(lida_buffer)
+    return excel #lida_buffer.getvalue()
             
-    return lida_file_path
