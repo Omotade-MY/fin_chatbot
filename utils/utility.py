@@ -3,15 +3,16 @@ from langchain.chat_models import ChatOpenAI
 import os
 from langchain.prompts.prompt import PromptTemplate
 import openai
+import base64
 import lida
 from lida import Manager, TextGenerationConfig , llm  
 import pandas as pd
+import numpy as np
 import io
 import os
 
 class ExcelLoader():
     def __init__(self, file):
-        import pandas as pd
         self.status = False
         self.name =  'ExcelLoader'
         self.file = file
@@ -41,7 +42,6 @@ class ExcelLoader():
 
 
 def randomName():
-    import numpy as np
     n = []
     n.append(np.random.choice(['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']).upper())
     n.append(str(np.random.randint(1,9)))                                 
@@ -71,14 +71,14 @@ def generate_plot(data_path, prompt=None,api_key=None):
         
     i = 0
     print("Using Matplotlib")
-    library = "matplotlib"
+    library = "plotly"
     plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library)
     
 
     if len(plots) == 0:
         print("Could not generate a plot from your prompt. The below chart can be helpful")
-        caption, fig = generate_plot(data_path=data_path)
-        return caption, fig
+        plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library)
+        
     
     fig = plots[0]
     caption = goals[0].rationale
@@ -114,19 +114,22 @@ def classify_prompt(input, api_key=None):
 
 
 def display(fig, rationale):
-    import base64
     # Decode the base64-encoded data
-    fig_data = base64.b64decode(fig.raster)
-    container = st.container()
-    with container:
-        st.image(fig_data)
-        st.markdown("**Insight**")
-        st.write(rationale)
-        
-        st.download_button(label="Download Image",
-                           data=fig_data,
-                           file_name=f"img{randomName()}.jpg",
-                           mime="image/jpeg",)
+    
+    fig_data = base64.decodebytes(fig.raster.encode())
+    
+    # Display the image using Streamlit
+    st.image(fig_data, use_column_width=True)
+
+    # Display insight
+    st.markdown("**Insight**")
+    st.write(rationale)
+
+    # Provide a download button for the image
+    st.download_button(label="Download Image",
+                       data=fig_data,
+                       file_name=f"img_{randomName()}.jpg",
+                       mime="image/jpeg")
         
 def data_load(ext, file):
     try:
