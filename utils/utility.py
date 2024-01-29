@@ -71,7 +71,7 @@ def generate_plot(data_path, prompt=None,api_key=None):
         
     i = 0
     print("Using Matplotlib")
-    library = "plotly"
+    library = "matplotlib"
     plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library)
     
 
