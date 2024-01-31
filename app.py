@@ -81,7 +81,7 @@ def init_messages() -> None:
         st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?", "img_path": None}]
         st.session_state.costs = []
 
-@st.cache_resource
+
 def init_memory():
     return ConversationBufferMemory(
         llm=ChatOpenAI(temperature=0.1),
