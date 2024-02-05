@@ -56,7 +56,7 @@ def randomName():
 def generate_plot(data_path, prompt=None,api_key=None):
     
     lida = Manager(text_gen = llm(provider="openai", api_key=api_key)) 
-    textgen_config = TextGenerationConfig(n=1, temperature=0, model="gpt-3.5-turbo-0613", use_cache=True)
+    textgen_config = TextGenerationConfig(n=1, temperature=0.5, model="gpt-3.5-turbo-0125", use_cache=False)
     
     summary = lida.summarize(data_path, summary_method="default", textgen_config=textgen_config)  
     
@@ -70,11 +70,21 @@ def generate_plot(data_path, prompt=None,api_key=None):
         goals = lida.goals(summary, n=1, persona=persona, textgen_config=textgen_config)
         
     i = 0
-    print("Using Matplotlib")
-    library = "plotly"
-    plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library)
-    
+    library = np.random.choice(["seaborn",'matplotlib'])
+    try:
+        # st.write(library)
+        #library = "seaborn"
+        plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library)
+        if not plots:
+            st.write("Using Matplotlib")
+            library = "matplotlib"
+            plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library)
 
+
+    except Exception as e:
+        st.write("Using Matplotlib")
+        library = "matplotlib"
+        plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library)
     if len(plots) == 0:
         print("Could not generate a plot from your prompt. The below chart can be helpful")
         plots = lida.visualize(summary=summary, goal=goals[i], textgen_config=textgen_config, library=library)
@@ -114,22 +124,21 @@ def classify_prompt(input, api_key=None):
 
 
 def display(fig, rationale):
+    import base64
+    
     # Decode the base64-encoded data
-    
-    fig_data = base64.decodebytes(fig.raster.encode())
-    
-    # Display the image using Streamlit
-    st.image(fig_data, use_column_width=True)
-
-    # Display insight
-    st.markdown("**Insight**")
-    st.write(rationale)
-
-    # Provide a download button for the image
-    st.download_button(label="Download Image",
-                       data=fig_data,
-                       file_name=f"img_{randomName()}.jpg",
-                       mime="image/jpeg")
+    fig_data = base64.b64decode(fig.raster)
+    container = st.container()
+    with container:
+        
+        st.image(fig_data,output_format='auto')
+        st.markdown("**Insight**")
+        st.write(rationale)
+        
+        st.download_button(label="Download Image",
+                           data=fig_data,
+                           file_name=f"img{randomName()}.jpg",
+                           mime="image/jpeg",)
         
 def data_load(ext, file):
     try:

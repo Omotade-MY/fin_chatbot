@@ -5,6 +5,8 @@ from agents.SQLagent import build_sql_agent
 from agents.csv_chat import build_csv_agent
 from utils import utility as ut
 # app.py
+import openai
+import getpass
 from typing import List, Union, Optional
 from langchain.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain.llms import OpenAI
@@ -23,13 +25,13 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
+from langchain_google_genai import ChatGoogleGenerativeAI
 import os
 import pandas as pd
 from dotenv import load_dotenv, find_dotenv
 import io
 
-# os.environ["OPENAI_API_KEY"] = ""
-
+_ = load_dotenv(find_dotenv())
 
 st.session_state.csv_file_paths = []
 
@@ -50,15 +52,24 @@ Answer:"""
 
 
 
-def open_ai_key():
+def model_api_key():
     with st.sidebar:
-        openai_api_key = st.text_input("OpenAI API Key or Google Gemini", key="chatbot_api_key", type="password")
-        "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
-        if not openai_api_key:
-            st.info("Please add your OpenAI API key to continue.")
-            st.stop()
-    os.environ["OPENAI_API_KEY"] = openai_api_key
+        model_key = st.text_input("API Key for OpenAI or Gemini", key="chatbot_api_key", type="password")
         
+        if not model_key:
+            st.info("Please add your API key to continue.")
+            st.stop()
+
+        selected_model = st.selectbox("Select Model", ["openai", "gemini"])
+
+        if selected_model == "openai":
+            os.environ["OPENAI_API_KEY"] = model_key 
+            openai.api_key  = os.getenv("OPENAI_API_KEY")
+        
+        elif selected_model == "gemini":
+            os.environ["GEMINI_API_KEY"] = getpass.getpass(model_key)
+            
+         
 @st.cache_data
 def dbActive():
     os.environ['DB_ACTIVE'] = 'false'
@@ -247,10 +258,8 @@ def select_llm() -> Union[ChatOpenAI, LlamaCpp]:
                                   ("gpt-3.5-turbo-1106",
                                    "gpt-3.5-turbo-16k-0613",
                                    "gpt-4",
-                                #    "mistral-7b-v0.1.Q5_0",
-                                #    "zephyr-7b-beta.Q5_0",
-                                #    "falcon-180b-chat.Q5_K_M",
-                                #    "dolphin-2_2-yi-34b.Q5_K_M"
+                                   "gemini-pro",
+             
                                    ))
     temperature = st.sidebar.slider("Temperature:", min_value=0.0,
                                     max_value=1.0, value=0.0, step=0.01)
@@ -258,12 +267,11 @@ def select_llm() -> Union[ChatOpenAI, LlamaCpp]:
                         "What would you like to query?",
                         ("Documents", "CSV|Excel", 'Database')
     )
-    #api_key  = st.sidebar.text_input('OPENAI API Key')
     
     return model_name, temperature, chain_mode,# api_key
 
 
-def init_agent(model_name: str, temperature: float, **kwargs) -> Union[ChatOpenAI, LlamaCpp]:
+def init_agent(model_name: str, temperature: float, **kwargs) -> Union[ChatOpenAI, ChatGoogleGenerativeAI ]:
     """
     Load LLM.
     """
@@ -272,35 +280,9 @@ def init_agent(model_name: str, temperature: float, **kwargs) -> Union[ChatOpenA
     if model_name.startswith("gpt-"):
         llm =  ChatOpenAI(temperature=temperature, model_name=model_name)
     
-    elif model_name.startswith("llama-2-"):
-        callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
-        llm = LlamaCpp(
-            streaming = False,
-            model_path=f"./models/{model_name}.bin",
-            temperature=0.75,
-            input={"temperature": temperature,
-                   "max_length": 2048,
-                   "top_p": 1,
-                   'n_gpu_layers':40,
-                   'n_batch':512,
-                   },
-            n_ctx=2048,
-            callback_manager=callback_manager,
-            verbose=False,  # True
-        )
-    elif model_name.startswith("zephyr-") or model_name.startswith("mistral-") or model_name.startswith("dolphin-"):
-        callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
-        llm = LlamaCpp(
-                streaming = False,
-                model_path=f"./models/{model_name}.gguf",
-                temperature=0.75,
-                n_gpu_layers=40,
-                n_batch=512,
-                top_p=1,
-                verbose=True,
-                n_ctx=4096,
-                callback_manager=callback_manager,
-            )
+    elif model_name.startswith("gemini-"):
+        llm = ChatGoogleGenerativeAI(model="gemini-pro")
+    
     chain_mode = kwargs['chain_mode']
     if chain_mode == 'Database':
         rdbs = kwargs['rdbs']
@@ -379,7 +361,7 @@ def get_answer(llm_chain,llm, message, chain_type=None) -> tuple[str, float]:
     """
     import langchain
 
-    if isinstance(llm, (ChatOpenAI, OpenAI)):
+    if isinstance(llm, (ChatOpenAI, OpenAI, ChatGoogleGenerativeAI)):
         with get_openai_callback() as cb:
             try:
                 if isinstance(llm_chain, ConversationalRetrievalChain):
@@ -440,12 +422,9 @@ def main() -> None:
     init_page()
     dbActive()
     try:
-        open_ai_key()
-        _ = load_dotenv(find_dotenv())
+        model_api_key()
         if 'history' not in st.session_state:
             st.session_state['history'] = []
-
-        openai.api_key  = os.getenv("OPENAI_API_KEY")
         model_name, temperature, chain_mode = select_llm()
         embeddings = load_embeddings(model_name)
         files = get_csv_file()
@@ -538,7 +517,8 @@ def main() -> None:
                             answer, cost = get_answer(llm_chain,llm, prompt, chain_type=chain_mode)
                             st.session_state.costs.append(cost)
                             # st.write(answer)
-                        except ValueError:
+                        except ValueError as e:
+                            print(e)
                             st.error("Oops!!! Internal Error trying to generate answer")
                 elif chain_mode == "CSV|Excel":
                     # with st.spinner("Assistant is typing ..."):
@@ -546,7 +526,8 @@ def main() -> None:
                         answer, cost = get_answer(llm_chain,llm, prompt, chain_type=chain_mode)
                         st.session_state.costs.append(cost)
                         # st.write(answer)
-                    except ValueError:
+                    except ValueError as e:
+                        print(e)
                         st.error("Oops!!! Internal Error trying to generate answer")
                         
                 elif chain_mode == "Database":
@@ -555,7 +536,8 @@ def main() -> None:
                             answer, cost = get_answer(llm_chain,llm, prompt, chain_type=chain_mode)
                             st.write(answer)
                             st.session_state.costs.append(cost)
-                        except ValueError:
+                        except ValueError as e:
+                            print(e)
                             st.error("Oops!!! Internal Error trying to generate answer")
 
             except AssertionError:
