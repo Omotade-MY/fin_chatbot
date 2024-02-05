@@ -19,6 +19,8 @@ The FinAPP was conceived to address the specific need for a context-aware chatbo
 **Front-End Tool:**
 Streamlit has been chosen as the front-end tool due to its simplicity and efficiency in creating a user-friendly chatbot interface. It facilitates quick deployment and a smooth user experience.
 
+### Website link  
+- https://tim-financeapp.streamlit.app/
 **Functions:**
 - Provides a chat interface for user interaction.
 - Accepts various document formats, including PDF, TXT, and DOCX.
