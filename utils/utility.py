@@ -4,7 +4,6 @@ import os
 from langchain.prompts.prompt import PromptTemplate
 import openai
 import base64
-import lida
 from lida import Manager, TextGenerationConfig , llm  
 import pandas as pd
 import numpy as np
@@ -56,7 +55,8 @@ def randomName():
 def generate_plot(data_path, prompt=None,api_key=None):
     
     lida = Manager(text_gen = llm(provider="openai", api_key=api_key)) 
-    textgen_config = TextGenerationConfig(n=1, temperature=0.5, model="gpt-3.5-turbo-0125", use_cache=False)
+    textgen_config = TextGenerationConfig(n=1, temperature=0.5, model="gpt-3.5-turbo-16k-0613",use_cache=False)
+                                          #model="gpt-3.5-turbo-0125", use_cache=False)
     
     summary = lida.summarize(data_path, summary_method="default", textgen_config=textgen_config)  
     
