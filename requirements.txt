@@ -19,7 +19,7 @@ llama-cpp-python==0.2.20
 pymysql==1.1.0
 psycopg2-binary==2.9.1
 cryptography
-lida==0.0.10
+lida==0.0.11
 langchain_experimental
 langchainhub
 seaborn==0.13.0
