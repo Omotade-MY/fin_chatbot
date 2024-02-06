@@ -4,7 +4,6 @@ import os
 from langchain.prompts.prompt import PromptTemplate
 import openai
 import base64
-import lida
 from lida import Manager, TextGenerationConfig , llm  
 import pandas as pd
 import numpy as np
