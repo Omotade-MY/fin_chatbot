@@ -578,9 +578,9 @@ def main() -> None:
         st.sidebar.markdown(f"**Total cost: ${sum(costs):.5f}**")
         for cost in costs:
             st.sidebar.markdown(f"- ${cost:.5f}")
-    except openai.error.AuthenticationError as e:
+    except openai.AuthenticationError as e:
         st.warning("Incorrect API key provided: You can find your API key at https://platform.openai.com/account/api-keys")
-    except openai.error.RateLimitError:
+    except openai.RateLimitError:
         st.warning('OpenAI RateLimit: Your API Key has probably exceeded the maximum requests per min or per day')
 
 
