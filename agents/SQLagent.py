@@ -1,7 +1,6 @@
 import os
-from langchain_experimental.agents import AgentType
-from langchain.agents import initialize_agent, Tool
-from langchain.agents import create_sql_agent 
+
+from langchain.agents import create_sql_agent, AgentType
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit 
 from langchain.sql_database import SQLDatabase 
 
@@ -74,12 +73,7 @@ def build_sql_agent(llm,rdbs, **kwargs):
 
     return sql_agent
 
-def sql_as_tool(agent):
-    return Tool.from_function(
-            name = "sql_retrieval_tool",
-            func=agent.run,
-            description= "Use this tool if you need to run queries against the database.",
-        )
+
 #sql_agent = build_sql_agent()
 #message = "what is the `total score` for 'Sunday Nwoye' added to 'Helen Opayemi'"
 #sql_agent.run(input=message)
