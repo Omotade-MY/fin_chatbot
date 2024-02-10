@@ -1,5 +1,5 @@
-#from langchain.agents import create_csv_agent, AgentType
-from langchain_experimental.agents import create_csv_agent, AgentType
+from langchain.agents import AgentType
+from langchain_experimental.agents import create_csv_agent
 from langchain.agents import Tool
 
 welcome_message = """Welcome to the Chainlit PDF QA demo! To get started:
