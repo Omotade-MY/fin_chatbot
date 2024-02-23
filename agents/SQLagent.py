@@ -3,7 +3,14 @@ import os
 from langchain.agents import create_sql_agent, AgentType
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit 
 from langchain.sql_database import SQLDatabase 
+import sys
+import os
 
+# Get the root directory of your project
+root_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Add the root directory to the Python path
+sys.path.append(root_dir)
 
 def postgres_uri(username, password, host, port, database):
     try:
